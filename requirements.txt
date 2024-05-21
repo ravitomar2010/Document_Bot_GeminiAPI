@@ -5,3 +5,4 @@ tiktoken
 pypdf
 langchain_google_genai
 chromadb
+langchain_community

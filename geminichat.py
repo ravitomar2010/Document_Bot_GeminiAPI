@@ -3,7 +3,7 @@ import streamlit as st
 from langchain_community.vectorstores import Chroma
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
-
+#import google.generativeai as genai
 
 # loading PDF, DOCX and TXT files as LangChain Documents
 def load_document(file):
@@ -34,6 +34,7 @@ def chunk_data(data, chunk_size=256, chunk_overlap=20):
     from langchain.text_splitter import RecursiveCharacterTextSplitter
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
     chunks = text_splitter.split_documents(data)
+    #    chunks = data.load_and_split(text_splitter)
     return chunks
 
 
@@ -41,8 +42,9 @@ def chunk_data(data, chunk_size=256, chunk_overlap=20):
 def create_embeddings(chunks):
     if not os.getenv("GOOGLE_API_KEY"):
         raise ValueError("GEMINI_API_KEY environment variable is not set.")
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-    print("embeddings done .....")
+
+    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001",google_api_key=GOOGLE_API_KEY)
+    print(embeddings)
     vector_store = Chroma.from_documents(chunks, embeddings)
 
     # if you want to use a specific directory for chromadb
@@ -51,14 +53,24 @@ def create_embeddings(chunks):
 
 
 def ask_and_get_answer(vector_store, q, k=3):
-    from langchain.chains import RetrievalQA
+    #from langchain.chains import RetrievalQA
     from langchain_google_genai import ChatGoogleGenerativeAI
+    from langchain_core.prompts import PromptTemplate
 
+    docs = vector_store.similarity_search(q)
     llm = ChatGoogleGenerativeAI(model='gemini-pro', temperature=1)
-    retriever = vector_store.as_retriever(search_type='similarity', search_kwargs={'k': k})
-    chain = RetrievalQA.from_chain_type(llm=llm, chain_type="stuff", retriever=retriever)
+    
+    template = """
+    you are an AI Assistant of {context} , whenever any question {q} is asked you have to provided the more precise answer from context . output should be as a user prompt not as a system prompt
+    """
 
-    answer = chain.invoke(q)
+    prompt = PromptTemplate.from_template(template)
+
+    chain = prompt | llm
+    #retriever = vector_store.as_retriever(search_type='similarity', search_kwargs={'k': k})
+    #chain = RetrievalQA.from_chain_type(llm=llm, chain_type="stuff", retriever=retriever)
+
+    answer = chain.invoke({"input": q, "context": docs, "sytem_prompt": prompt})
     return answer
 
 
@@ -92,7 +104,7 @@ if __name__ == "__main__":
         api_key = st.text_input('Gemini API Key:', type='password')
         if api_key:
             os.environ['GOOGLE_API_KEY'] = api_key
-
+        GOOGLE_API_KEY=api_key
         # file uploader widget
         uploaded_file = st.file_uploader('Upload a file:', type=['pdf', 'docx', 'txt'])
 
@@ -125,10 +137,8 @@ if __name__ == "__main__":
 
                 # creating the embeddings and returning the Chroma vector store
                 print("creating embedding ....")
-                try:
-                    vector_store = create_embeddings(chunks)
-                except ValueError as e:
-                    st.error(f"Error creating embeddings: {e}")
+
+                vector_store = create_embeddings(chunks)
                 # saving the vector store in the streamlit session state (to be persistent between reruns)
                 st.session_state.vs = vector_store
                 st.success('File uploaded, chunked and embedded successfully.')
@@ -158,5 +168,5 @@ if __name__ == "__main__":
             # text area widget for the chat history
             st.text_area(label='Chat History', value=h, key='history', height=400)
 
-# run the app: streamlit run ./chat_with_documents.py
+# run the app: streamlit run ./geminichat.py
 

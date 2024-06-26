@@ -39,17 +39,20 @@ def chunk_data(data, chunk_size=256, chunk_overlap=20):
 
 
 # create embeddings using GeminiEmbeddings() and save them in a Chroma vector store
+
 def create_embeddings(chunks):
-    if not os.getenv("GOOGLE_API_KEY"):
-        raise ValueError("GEMINI_API_KEY environment variable is not set.")
-
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001",google_api_key=GOOGLE_API_KEY)
-    print(embeddings)
-    vector_store = Chroma.from_documents(chunks, embeddings)
-
-    # if you want to use a specific directory for chromadb
-    # vector_store = Chroma.from_documents(chunks, embeddings, persist_directory='./mychroma_db')
-    return vector_store
+  if not os.getenv("GOOGLE_API_KEY"):
+    raise ValueError("GOOGLE_API_KEY environment variable is not set.")
+  print("chnuks is ", chunks)
+  # Initialize the embeddings model directly
+  #GOOGLE_API_KEY = 'AIzaSyBEPGKZDgLcfbKBB3OxWirjPCRNBTQ4JmA'  # Replace with your actual API key
+  #genai.configure(api_key=GOOGLE_API_KEY)
+  embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001",google_api_key=GOOGLE_API_KEY)
+  # Pass the chunks list directly here
+  #embedding = embeddings.embed_documents(chunks)  
+  print("embedding is ", embeddings)
+  vector_store = Chroma.from_documents(chunks, embeddings)
+  return vector_store
 
 
 def ask_and_get_answer(vector_store, q, k=3):
@@ -60,9 +63,19 @@ def ask_and_get_answer(vector_store, q, k=3):
     docs = vector_store.similarity_search(q)
     llm = ChatGoogleGenerativeAI(model='gemini-pro', temperature=1)
     
-    template = """
-    you are an AI Assistant of {context} , whenever any question {q} is asked you have to provided the more precise answer from context . output should be as a user prompt not as a system prompt
+    template1 = """
+    you are an AI Assistant of {context} , whenever any question {user_query} is asked you have to provided the more precise answer from {context} . 
     """
+
+    template = ''' Answer the question as detailed as possible from the provided {context}, make sure to provide all the details, if the answer is not in
+  provided context just say, "answer is not available in the context", don't provide the wrong answer
+ 
+    ====================
+    Context: {context}
+    ====================
+ 
+    Question: {user_query}
+    '''
 
     prompt = PromptTemplate.from_template(template)
 
@@ -70,8 +83,8 @@ def ask_and_get_answer(vector_store, q, k=3):
     #retriever = vector_store.as_retriever(search_type='similarity', search_kwargs={'k': k})
     #chain = RetrievalQA.from_chain_type(llm=llm, chain_type="stuff", retriever=retriever)
 
-    answer = chain.invoke({"input": q, "context": docs, "sytem_prompt": prompt})
-    return answer
+    answer = chain.invoke({"context": docs, "sytem_prompt": prompt, "user_query":q })
+    return answer['content']
 
 
 # calculate embedding cost using tiktoken

@@ -97,7 +97,18 @@ if __name__ == "__main__":
     #from dotenv import load_dotenv, find_dotenv
     #load_dotenv(find_dotenv(), override=True)
     st.empty()
+    st.logo('hcl.jpg')    
+
+    st.html("""
+  <style>
+    [alt=Logo] {
+      height: 5rem;
+      width: 45rem;
+    }
+  </style>
+        """)
     st.image('OIP.jpeg')
+
     st.subheader('Question-Answering Application 🤖')
     with st.sidebar:
         # text_input for the Gemini API key (alternative to python-dotenv and .env)

@@ -1,0 +1,8 @@
+langchain
+streamlit
+tiktoken
+#langchain_google_vertexai
+pypdf
+langchain_google_genai==1.0.3
+chromadb
+langchain_community
